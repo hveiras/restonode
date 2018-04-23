@@ -10,9 +10,13 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
+    "amqplib": "^0.5.2",
     "body-parser": "^1.18.2",
+    "config": "^1.30.0",
     "express": "^4.16.3",
     "pg": "^7.4.1",
+    "request": "^2.85.0",
+    "request-promise": "^4.2.2",
     "sequelize": "^4.37.6",
     "sequelize-cli": "^4.0.0",
     "simple-errors": "^1.0.1",

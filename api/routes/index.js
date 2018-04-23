@@ -1,7 +1,9 @@
-var models  = require('../models');
-var express = require('express');
+const models  = require('../models');
+const express = require('express');
 const Sequelize = require('sequelize');
-var router  = express.Router();
+const amqplib = require('amqplib');
+const config = require('config');
+const router  = express.Router();
 
 const Op = Sequelize.Op;
 
@@ -14,11 +16,12 @@ router.route('/restaurant')
 
 router.route('/restaurant/:restaurantId/rating')
   .post(async (req, res, next) => {
-    const rating = Object.assign(req.body, { RestaurantId: req.params.restaurantId});
-    console.log(rating);
-    const created = await models.Rating.create(req.body);
+    const rating = await models.Rating.create(Object.assign(
+      req.body,
+      { RestaurantId: req.params.restaurantId }
+    ));
     
-    return res.status(201).send(created);
+    return res.status(201).send(rating);
   });
 
 router.route('/restaurant/:restaurantId/rating/gte/:rating')
@@ -33,6 +36,36 @@ router.route('/restaurant/:restaurantId/rating/gte/:rating')
     });
 
     return res.status(200).send(restaurants);
+  });
+
+router.route('/meal')
+  .get(async (req, res, next) => {
+    const meals = await models.Meal.findAll();
+
+    return res.status(200).send(meals);
+  })
+
+router.route('/restaurant/:restaurantId/order')
+  .post(async (req, res, next) => {
+    const restaurantId = req.params.restaurantId;
+    const restaurant = await models.Restaurant.findOne({ where: { id: restaurantId } });
+    if (!restaurant) throw Error.http(400, `Restaurant with id ${restaurantId} does not exist.`);
+
+    const model = req.body;
+    const order = await models.Order.create(model);
+    order.setMeals(req.body.meals);
+
+    const orderData = order.get({ plain: true });
+    orderData.eta = await models.Order.calculateEta(restaurant.latLng, req.body.latLng);
+
+    const conn= await amqplib.connect(config.rabbitmq);
+    const ch = await conn.createChannel();
+    const payload = Buffer.from(JSON.stringify(orderData));
+
+    await ch.sendToQueue('orders', payload);
+    await ch.sendToQueue('notifications', payload);
+    
+    return res.status(201).send(orderData);
   });
 
 module.exports = router;

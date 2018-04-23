@@ -1,0 +1,3 @@
+{
+  "rabbitmq": "amqp://nodejs:nodejs@localhost"
+}
